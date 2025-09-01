@@ -15,21 +15,12 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Scroll to review section if Analyze clicked
-  const handleAnalyzeClick = () => {
-    if (location.pathname === "/") {
-      const section = document.getElementById("review-submissions");
-      if (section) section.scrollIntoView({ behavior: "smooth" });
-    } else {
-      // Navigate to home with #review-submissions
-      window.location.href = "/#review-submissions";
-    }
-  };
-
   const navLinks = [
     { label: "Home", href: "/" },
     { label: "Upload Resume", href: "/upload" },
-    { label: "Analyzer", href: "#", onClick: handleAnalyzeClick },
+    { label: "FAQs", href: "/#faqs" },
+    { label: "Features", href: "/#features" },
+    { label: "Contact Us", href: "/#contact-us" }, // scroll to footer
   ];
 
   return (
@@ -60,21 +51,12 @@ const Navbar = () => {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
           >
-            {link.onClick ? (
-              <button
-                onClick={link.onClick}
-                className="font-ovo text-gray-800 hover:text-amber-600 transition-colors"
-              >
-                {link.label}
-              </button>
-            ) : (
-              <Link
-                to={link.href}
-                className="font-ovo text-gray-800 hover:text-amber-600 transition-colors"
-              >
-                {link.label}
-              </Link>
-            )}
+            <Link
+              to={link.href}
+              className="font-ovo text-gray-800 hover:text-amber-600 transition-colors"
+            >
+              {link.label}
+            </Link>
           </motion.li>
         ))}
       </motion.ul>
@@ -123,25 +105,13 @@ const Navbar = () => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 * idx }}
               >
-                {link.onClick ? (
-                  <button
-                    onClick={() => {
-                      link.onClick!();
-                      setMenuOpen(false);
-                    }}
-                    className="font-ovo py-4 block text-gray-800 hover:text-amber-600 transition-colors w-full text-left"
-                  >
-                    {link.label}
-                  </button>
-                ) : (
-                  <Link
-                    to={link.href}
-                    className="font-ovo py-4 block text-gray-800 hover:text-amber-600 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                )}
+                <Link
+                  to={link.href}
+                  className="font-ovo py-4 block text-gray-800 hover:text-amber-600 transition-colors"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
               </motion.li>
             ))}
           </motion.ul>

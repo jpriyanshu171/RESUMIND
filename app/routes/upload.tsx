@@ -7,9 +7,7 @@ import { generateUUID } from "~/lib/utils";
 import { prepareInstructions } from "../../constants";
 import { convertPdfToImage } from "~/lib/pdf2image";
 import { motion } from "framer-motion";
-// import { Upload as UploadIcon } from "lucide-react";
 import { Upload as UploadIcon, X } from "lucide-react";
-
 
 const Upload = () => {
   const { fs, ai, kv } = usePuterStore();
@@ -30,87 +28,93 @@ const Upload = () => {
     jobDescription: string;
     file: File;
   }) => {
-    setIsProcessing(true);
+    try {
+      setIsProcessing(true);
+      setStatusText("Uploading resume file...");
+      const uploadedFile = await fs.upload([file]);
+      if (!uploadedFile) throw new Error("Failed to upload resume");
 
-    setStatusText("Uploading the file...");
-    const uploadedFile = await fs.upload([file]);
-    if (!uploadedFile) return setStatusText("Error: Failed to upload file");
+      setStatusText("Converting PDF to image...");
+      const imageFile = await convertPdfToImage(file);
+      if (!imageFile || !imageFile.file) throw new Error("Failed to convert PDF");
 
-    setStatusText("Converting to image...");
-    const imageFile = await convertPdfToImage(file);
-    if (!imageFile.file)
-      return setStatusText("Error: Failed to convert PDF to image");
+      setStatusText("Uploading preview image...");
+      const uploadedImage = await fs.upload([imageFile.file]);
+      if (!uploadedImage) throw new Error("Failed to upload image");
 
-    setStatusText("Uploading the image...");
-    const uploadedImage = await fs.upload([imageFile.file]);
-    if (!uploadedImage) return setStatusText("Error: Failed to upload image");
+      setStatusText("Preparing AI analysis...");
+      const uuid = generateUUID();
+      const resumeData = {
+        id: uuid,
+        resumePath: uploadedFile.path,
+        imagePath: uploadedImage.path,
+        companyName,
+        jobTitle,
+        jobDescription,
+        feedback: null,
+      };
+      await kv.set(`resume:${uuid}`, JSON.stringify(resumeData));
 
-    setStatusText("Preparing data...");
-    const uuid = generateUUID();
-    const data = {
-      id: uuid,
-      resumePath: uploadedFile.path,
-      imagePath: uploadedImage.path,
-      companyName,
-      jobTitle,
-      jobDescription,
-      feedback: "",
-    };
-    await kv.set(`resume:${uuid}`, JSON.stringify(data));
+      setStatusText("Analyzing with AI...");
+      const aiResponse = await ai.feedback(
+        uploadedFile.path,
+        prepareInstructions({ jobTitle, jobDescription })
+      );
 
-    setStatusText("Analyzing...");
-    const feedback = await ai.feedback(
-      uploadedFile.path,
-      prepareInstructions({ jobTitle, jobDescription })
-    );
-    if (!feedback) return setStatusText("Error: Failed to analyze resume");
+      if (!aiResponse) throw new Error("AI analysis failed");
 
-    const feedbackText =
-      typeof feedback.message.content === "string"
-        ? feedback.message.content
-        : feedback.message.content[0].text;
+      const feedbackText =
+        typeof aiResponse.message.content === "string"
+          ? aiResponse.message.content
+          : aiResponse.message.content?.[0]?.text;
 
-    data.feedback = JSON.parse(feedbackText);
-    await kv.set(`resume:${uuid}`, JSON.stringify(data));
+      let parsedFeedback = null;
+      try {
+        parsedFeedback = JSON.parse(feedbackText);
+      } catch {
+        parsedFeedback = feedbackText; // fallback if not JSON
+      }
 
-    setStatusText("Analysis complete, redirecting...");
-    navigate(`/resume/${uuid}`);
+      resumeData.feedback = parsedFeedback;
+      await kv.set(`resume:${uuid}`, JSON.stringify(resumeData));
+
+      setStatusText("Analysis complete! Redirecting...");
+      navigate(`/resume/${uuid}`);
+    } catch (err: any) {
+      console.error(err);
+      setStatusText(`Error: ${err.message || "Unknown error occurred"}`);
+      setIsProcessing(false);
+    }
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget.closest("form");
-    if (!form) return;
+    if (!file) return setStatusText("Please select a file to upload.");
+
+    const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const companyName = formData.get("company-name") as string;
-    const jobTitle = formData.get("job-title") as string;
-    const jobDescription = formData.get("job-description") as string;
-
-    if (!file) return;
-
-    handleAnalyze({ companyName, jobTitle, jobDescription, file });
+    handleAnalyze({
+      companyName: formData.get("company-name") as string,
+      jobTitle: formData.get("job-title") as string,
+      jobDescription: formData.get("job-description") as string,
+      file,
+    });
   };
 
-  const handleFileClick = () => {
-    fileInputRef.current?.click();
-  };
-
+  const handleFileClick = () => fileInputRef.current?.click();
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
+    if (e.target.files?.[0]) setFile(e.target.files[0]);
   };
 
   return (
     <main className="bg-gray-50 min-h-screen flex flex-col items-center font-ovo">
       <Navbar />
-
       <section className="max-w-3xl w-full px-6 py-20 flex flex-col items-center">
-        {/* Heading */}
         <h1 className="text-4xl font-bold mb-3 text-center">
           Smart Feedback for Your Dream Job
         </h1>
 
-        {/* Subtitle / Status */}
         {!isProcessing ? (
           <motion.h2
             initial={{ opacity: 0 }}
@@ -131,7 +135,6 @@ const Upload = () => {
           </>
         )}
 
-        {/* Upload Form */}
         {!isProcessing && (
           <motion.form
             initial={{ opacity: 0, y: 15 }}
@@ -140,71 +143,42 @@ const Upload = () => {
             onSubmit={handleSubmit}
             className="w-full flex flex-col gap-6 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-lg items-center"
           >
-            {/* Company Name */}
-            <div className="w-full flex flex-col">
-              <label
-                htmlFor="company-name"
-                className="text-gray-700 font-medium text-sm mb-1"
-              >
-                Company Name
-              </label>
-              <input
-                type="text"
-                name="company-name"
-                id="company-name"
-                placeholder="Company Name"
-                className="p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none w-full"
-                required
-              />
-            </div>
+            {/** Company Name */}
+            <input
+              type="text"
+              name="company-name"
+              placeholder="Company Name"
+              className="p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none w-full"
+              required
+            />
 
-            {/* Job Title */}
-            <div className="w-full flex flex-col">
-              <label
-                htmlFor="job-title"
-                className="text-gray-700 font-medium text-sm mb-1"
-              >
-                Job Title
-              </label>
-              <input
-                type="text"
-                name="job-title"
-                id="job-title"
-                placeholder="Job Title"
-                className="p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none w-full"
-                required
-              />
-            </div>
+            {/** Job Title */}
+            <input
+              type="text"
+              name="job-title"
+              placeholder="Job Title"
+              className="p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none w-full"
+              required
+            />
 
-            {/* Job Description */}
-            <div className="w-full flex flex-col">
-              <label
-                htmlFor="job-description"
-                className="text-gray-700 font-medium text-sm mb-1"
-              >
-                Job Description
-              </label>
-              <textarea
-                rows={6}
-                name="job-description"
-                id="job-description"
-                placeholder="Job Description"
-                className="p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none resize-none w-full"
-                required
-              />
-            </div>
+            {/** Job Description */}
+            <textarea
+              name="job-description"
+              placeholder="Job Description"
+              rows={6}
+              className="p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-400 outline-none resize-none w-full"
+              required
+            />
 
-            {/* Upload Resume */}
-            {/* Upload Resume */}
+            {/** Upload Resume */}
             <motion.div
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center gap-2 w-full cursor-pointer"
-              onClick={!file ? handleFileClick : undefined} // only open picker if no file
+              onClick={!file ? handleFileClick : undefined}
             >
               <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-2xl p-8 w-full hover:border-amber-400 transition-all bg-gray-50 relative">
                 {file ? (
-                  // ✅ Show file name + remove option with icon
                   <div className="flex flex-col items-center">
                     <UploadIcon className="w-10 h-10 text-green-600 mb-3" />
                     <span className="text-gray-800 font-medium text-center mb-3">
@@ -213,7 +187,7 @@ const Upload = () => {
                     <button
                       type="button"
                       onClick={(e) => {
-                        e.stopPropagation(); // prevent triggering fileInput click
+                        e.stopPropagation();
                         setFile(null);
                       }}
                       className="flex items-center gap-1 text-red-500 text-sm font-medium hover:text-red-600 transition-colors cursor-pointer"
@@ -222,7 +196,6 @@ const Upload = () => {
                     </button>
                   </div>
                 ) : (
-                  // Default message
                   <>
                     <UploadIcon className="w-10 h-10 text-amber-500 mb-2" />
                     <span className="text-gray-500 text-sm text-center">
@@ -233,7 +206,6 @@ const Upload = () => {
               </div>
 
               <input
-                title="Select your resume file to upload"
                 type="file"
                 accept=".pdf,.doc,.docx"
                 className="hidden"
@@ -242,7 +214,7 @@ const Upload = () => {
               />
             </motion.div>
 
-            {/* Submit Button */}
+            {/** Submit Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

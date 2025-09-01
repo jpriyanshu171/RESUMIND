@@ -93,12 +93,40 @@ export default function Home() {
           application stand out. Track submissions and review feedback in one
           place.
         </p>
+        <Link
+          to="/upload"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold px-8 py-4 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transform transition-all duration-300"
+        >
+          <FaUpload className="w-5 h-5" />
+          Upload Your Resume
+        </Link>
+        <br />
+        <br />
+        <br />
         <img
           src="/images/five.jpeg"
           alt="Hero Image"
           className="mx-auto w-80 sm:w-96 md:w-[28rem] rounded-3xl object-cover shadow-2xl"
         />
       </section>
+      {/* Uploaded Resumes - only show if user has uploaded resumes */}
+      {resumes.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 py-12">
+          <h2 className="text-3xl font-bold text-center mb-8 text-purple-700">
+            Your Uploaded Resumes
+          </h2>
+
+          {loadingResumes ? (
+            <p className="text-center text-gray-500">Loading resumes...</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {resumes.map((resume, idx) => (
+                <ResumeCard key={idx} resume={resume} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Why Choose Resumind */}
       <section className="max-w-6xl mx-auto px-6 py-24">
@@ -138,7 +166,10 @@ export default function Home() {
       </section>
 
       {/* How Resumind Works */}
-      <section className="max-w-6xl mx-auto px-6 py-24 space-y-20">
+      <section
+        id="features"
+        className="max-w-6xl mx-auto px-6 py-24 space-y-20"
+      >
         <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
           How Resumind Works
         </h2>
@@ -188,9 +219,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <br />
 
       {/* FAQ */}
-      <section className="max-w-6xl mx-auto px-6 py-20 space-y-10">
+      <section id="faqs" className="max-w-6xl mx-auto px-6 py-20 space-y-10">
         <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12 text-purple-700">
           Frequently Asked Questions
         </h2>
@@ -228,7 +260,7 @@ export default function Home() {
       </section>
 
       {/* Contact Us */}
-      <section className="max-w-6xl mx-auto px-6 py-28">
+      <section id="contact-us" className="max-w-6xl mx-auto px-6 py-28">
         <h2 className="text-4xl sm:text-5xl font-bold text-center mb-16 text-purple-700">
           Contact Us
         </h2>
@@ -241,7 +273,10 @@ export default function Home() {
             </p>
             <p className="text-gray-700">
               Email:{" "}
-              <a href="mailto:jpriyanshu171@gmail.com" className="text-amber-600">
+              <a
+                href="mailto:jpriyanshu171@gmail.com"
+                className="text-amber-600"
+              >
                 support@resumind.com
               </a>
             </p>
